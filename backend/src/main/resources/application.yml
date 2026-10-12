@@ -1,0 +1,26 @@
+server:
+  port: ${SERVER_PORT:8123}
+  servlet:
+    context-path: /api
+spring:
+  application:
+    name: zerocode-backend
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/zerocode?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+  jackson:
+    time-zone: Asia/Shanghai
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+springdoc:
+  group-configs:
+    - group: default
+      packages-to-scan: com.zzz.zerocode.controller
+knife4j:
+  # 保留 doc.html 文档 UI，关闭 4.5.0 中与 Springdoc 2.8.x 不兼容的增强定制器。
+  enable: false

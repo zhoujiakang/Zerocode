@@ -1,0 +1,9 @@
+# 生产环境默认关闭文档，跨域来源通过 CORS_ALLOWED_ORIGINS 指定。
+knife4j:
+  enable: false
+  production: true
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

@@ -3,6 +3,9 @@ package com.zzz.zerocode;
 import com.zzz.zerocode.common.DeleteRequest;
 import com.zzz.zerocode.common.PageRequest;
 import com.zzz.zerocode.config.CorsConfig;
+import com.zzz.zerocode.satoken.SaTokenConfig;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import com.zzz.zerocode.controller.HealthController;
 import com.zzz.zerocode.exception.*;
 import jakarta.validation.Valid;
@@ -17,7 +20,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = {HealthController.class, InfrastructureTest.TestController.class},
-        properties = "app.cors.allowed-origins=http://localhost:5173")
+        properties = "app.cors.allowed-origins=http://localhost:5173",
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {SaTokenConfig.class}))
 @Import({GlobalExceptionHandler.class, CorsConfig.class, InfrastructureTest.TestController.class})
 class InfrastructureTest {
     @Autowired MockMvc mvc;

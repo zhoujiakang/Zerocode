@@ -1,6 +1,21 @@
 <script setup>
+import { onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { message } from 'ant-design-vue'
+import { useUserStore } from './stores/user'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import BasicLayout from './layouts/BasicLayout.vue'
+const router = useRouter()
+const userStore = useUserStore()
+function handleUnauthorized() {
+  userStore.clearUser()
+  if (router.currentRoute.value.meta.requiresAuth) {
+    message.info('登录状态已失效，请重新登录')
+    router.replace({ path: '/user/login', query: { redirect: router.currentRoute.value.fullPath } })
+  }
+}
+onMounted(() => window.addEventListener('zerocode:unauthorized', handleUnauthorized))
+onUnmounted(() => window.removeEventListener('zerocode:unauthorized', handleUnauthorized))
 const theme = { token: { colorPrimary: '#5363e9', borderRadius: 8, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif' } }
 </script>
 

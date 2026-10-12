@@ -7,3 +7,4 @@ target/
 *.log
 .env
 .env.local
+backend/config/application-local.yml

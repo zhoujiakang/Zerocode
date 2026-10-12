@@ -6,5 +6,5 @@ export const siteConfig = {
 }
 export const menuItems = [
   { key: '/', label: '首页' },
-  // 后续在这里添加页面菜单，并在 router/index.js 注册相应路由。
+  { key: '/admin/user', label: '用户管理', role: 'admin' },
 ]

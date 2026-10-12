@@ -3,6 +3,9 @@ package com.zzz.zerocode.exception;
 import com.zzz.zerocode.common.BaseResponse;
 import com.zzz.zerocode.common.ResultUtils;
 import jakarta.validation.ConstraintViolationException;
+import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotRoleException;
+import cn.dev33.satoken.exception.NotPermissionException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,6 +22,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(NotLoginException.class)
+    public ResponseEntity<BaseResponse<Void>> handleNotLogin(NotLoginException e) { return failure(ErrorCode.NOT_LOGIN_ERROR); }
+    @ExceptionHandler({NotRoleException.class, NotPermissionException.class})
+    public ResponseEntity<BaseResponse<Void>> handleNoPermission(Exception e) { return failure(ErrorCode.NO_AUTH_ERROR); }
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<BaseResponse<Void>> handleBusiness(BusinessException e) {
         log.warn("Business error: code={}, message={}", e.getCode(), e.getMessage());

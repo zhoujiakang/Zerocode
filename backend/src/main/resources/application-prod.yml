@@ -7,3 +7,6 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+sa-token:
+  cookie:
+    secure: true

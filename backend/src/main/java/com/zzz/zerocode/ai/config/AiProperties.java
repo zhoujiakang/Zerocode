@@ -31,5 +31,8 @@ public class AiProperties {
         private Duration timeout = Duration.ofSeconds(120);
         private Integer maxOutputTokens = 16384;
         private Double temperature;
+        /** 服务商扩展的 Chat Completions 请求参数，例如 DeepSeek thinking。 */
+        @ToString.Exclude
+        private Map<String, Object> customParameters = new LinkedHashMap<>();
     }
 }

@@ -38,6 +38,8 @@ public class AiModelRegistry {
                 .baseUrl(config.getBaseUrl()).apiKey(config.getApiKey()).modelName(config.getModelName())
                 .timeout(config.getTimeout()).maxTokens(config.getMaxOutputTokens()).maxRetries(1)
                 .logRequests(false).logResponses(false);
+        if (config.getCustomParameters() != null && !config.getCustomParameters().isEmpty())
+            builder.customParameters(config.getCustomParameters());
         if (config.getTemperature() != null) builder.temperature(config.getTemperature());
         return builder.build();
     }

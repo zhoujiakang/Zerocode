@@ -3,3 +3,19 @@ spring:
   datasource:
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:请填写本地数据库密码}
+
+# 使用 DeepSeek 时设置 DEEPSEEK_API_KEY 和 AI_ENABLED=true，或在已忽略的本地文件中填写。
+app:
+  ai:
+    enabled: ${AI_ENABLED:false}
+    code-generation-model: deepseek
+    models:
+      deepseek:
+        base-url: https://api.deepseek.com
+        model-name: deepseek-flash
+        api-key: ${DEEPSEEK_API_KEY:}
+        timeout: 120s
+        max-output-tokens: 8192
+        custom-parameters:
+          thinking:
+            type: disabled

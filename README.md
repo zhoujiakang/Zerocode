@@ -211,4 +211,16 @@ Redis 记忆是模型可见的窗口，不是完整对话历史；完整用户�
 
 预览使用 `sandbox="allow-scripts"` 的 iframe，不启用同源权限。原始 HTML 通过 DOMParser 处理，多文件的本地 CSS / JS 引用仅在预览副本中替换成 data URL，源码保持不变。CSP 限制网络请求、外部脚本和表单跳转；支持 HTTPS 图片。隔离来源限制了浏览器存储、弹窗及某些浏览器能力，预览不等同于独立部署的网站。
 
-验证：`cd frontend && npm test && npm run build`。状态测试覆盖超时配置、模型未配置、失败重试确认、应用切换后的旧响应和历史分页。浏览器验证覆盖登录跳转、两种模式创建、工作台、源码切换、375px 响应式布局，以及手工样例的 CSS / JavaScript 预览和父页面隔离；临时样例随后清理。真实模型地址、名称和密钥尚未提供，未进行真实 AI 生成质量验证。
+验证：`cd frontend && npm test && npm run build`。状态测试覆盖超时配置、模型未配置、失败重试确认、应用切换后的旧响应和历史分页。浏览器验证覆盖登录跳转、两种模式创建、工作台、源码切换、375px 响应式布局，以及手工样例的 CSS / JavaScript 预览和父页面隔离；临时样例随后清理。本步骤完成时尚未提供真实模型配置，验证使用手工样例；后续接入验证见下文。
+
+## DeepSeek 接入
+
+当前使用 OpenAI 兼容地址 `https://api.deepseek.com` 和 `deepseek-flash`，配置名称为 `deepseek`，`code-generation-model` 指向该名称。模型名单通过实际 `/models` 接口确认。密钥只保存在 Git 忽略的 `backend/config/application-local.yml`，文件权限为 600，不进入代码仓库。
+
+`ModelConfig.customParameters` 支持服务商扩展请求参数，并由模型注册表传递给 LangChain4j。DeepSeek 配置使用 `thinking: { type: disabled }`；其默认思考模式要求在工具调用后续请求中回传 `reasoning_content`，当前 OpenAI 通用 Agent 先使用非思考模式。其他模型配置不必填写该参数，也不会自动受到 DeepSeek 设置影响。
+
+可参考 `backend/config/application-local.example.yml`，通过 `DEEPSEEK_API_KEY` 设置密钥、`AI_ENABLED=true` 启用。当前输出上限为 8192 tokens，可按实际生成需求修改本地配置。配置变更后需重启后端，使模型注册表及 Agent 缓存重新建立。
+
+官方参考：[DeepSeek API](https://api-docs.deepseek.com/)、[思考模式与工具调用](https://api-docs.deepseek.com/guides/thinking_mode/)、[LangChain4j 扩展请求参数](https://docs.langchain4j.dev/integrations/language-models/open-ai/#setting-custom-chat-request-parameters)。
+
+接入验证：54 项后端测试通过。已使用真实 DeepSeek 模型生成多文件计数器，通过工具读取、精确修改标题并保存，MySQL 记录四条用户/AI 对话；浏览器确认“加一”和“重置”交互正常。示例“DeepSeek 计数器”保留在本地管理员的应用列表中。

@@ -9,6 +9,10 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.langchain4j.service.tool.ToolArgumentsErrorHandler;
 import dev.langchain4j.service.tool.ToolExecutionErrorHandler;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.data.message.*;
+import com.zzz.zerocode.exception.*;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
@@ -17,6 +21,7 @@ import org.springframework.stereotype.Component;
 /** 按用户、应用和模式缓存 Agent，工具及记忆绑定同一上下文。 */
 @Component
 public class CodeGenerationAgentFactory {
+    private static final ObjectMapper TOOL_JSON = new ObjectMapper();
     private final AiModelRegistry modelRegistry;
     private final AiProperties properties;
     private final ChatMemoryStore memoryStore;
@@ -64,8 +69,54 @@ public class CodeGenerationAgentFactory {
         ReentrantLock lock = invocationLocks[Math.floorMod(context.hashCode(), invocationLocks.length)];
         return description -> {
             lock.lock();
-            try { return agent.generate(description); }
+            try {
+                var stored = memoryStore.getMessages(context.memoryId());
+                var before = recoverCompletedMemory(stored);
+                if (!before.equals(stored)) memoryStore.updateMessages(context.memoryId(), before);
+                try { return agent.generate(description); }
+                catch (RuntimeException failure) {
+                    boolean invalidArguments = false;
+                    try { invalidArguments = hasInvalidToolArguments(memoryStore.getMessages(context.memoryId())); }
+                    catch (RuntimeException inspectionFailure) { failure.addSuppressed(inspectionFailure); }
+                    // 工具参数解析或模型请求失败时，不能保留未完成的 tool_calls。
+                    try { memoryStore.updateMessages(context.memoryId(), before); }
+                    catch (RuntimeException recoveryFailure) { failure.addSuppressed(recoveryFailure); }
+                    if (invalidArguments)
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR, "模型生成的文件内容过长或工具参数不完整，请重试或精简需求");
+                    throw failure;
+                }
+            }
             finally { lock.unlock(); }
         };
     }
+    /** 对旧版本留下的残缺工具调用，恢复到最近一个完整回答，保留此前成功的记忆。 */
+    private List<ChatMessage> recoverCompletedMemory(List<ChatMessage> messages) {
+        int completed = 0;
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage message = messages.get(i);
+            if (message instanceof SystemMessage && i == 0) completed = 1;
+            if (!(message instanceof AiMessage ai)) continue;
+            if (!ai.hasToolExecutionRequests()) { completed = i + 1; continue; }
+            Set<String> pending = new HashSet<>();
+            for (var call : ai.toolExecutionRequests()) {
+                if (!validArguments(call.arguments())) return List.copyOf(messages.subList(0, completed));
+                pending.add(call.id());
+            }
+            int j = i + 1;
+            while (j < messages.size() && messages.get(j) instanceof ToolExecutionResultMessage result) {
+                pending.remove(result.id()); j++;
+            }
+            if (!pending.isEmpty()) return List.copyOf(messages.subList(0, completed));
+        }
+        return List.copyOf(messages);
+    }
+    private boolean hasInvalidToolArguments(List<ChatMessage> messages) {
+        return messages.stream().filter(AiMessage.class::isInstance).map(AiMessage.class::cast)
+                .filter(AiMessage::hasToolExecutionRequests).flatMap(ai -> ai.toolExecutionRequests().stream()).anyMatch(call -> !validArguments(call.arguments()));
+    }
+    private boolean validArguments(String arguments) {
+        try { return arguments != null && TOOL_JSON.readTree(arguments).isObject(); }
+        catch (Exception ignored) { return false; }
+    }
+
 }

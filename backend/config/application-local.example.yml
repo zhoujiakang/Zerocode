@@ -15,7 +15,7 @@ app:
         model-name: deepseek-flash
         api-key: ${DEEPSEEK_API_KEY:}
         timeout: 120s
-        max-output-tokens: 8192
+        max-output-tokens: 32768
         custom-parameters:
           thinking:
             type: disabled

@@ -129,4 +129,51 @@ class CodeGenerationAgentFactoryTest {
         var factory = new CodeGenerationAgentFactory(mock(AiModelRegistry.class), new AiProperties(), new InMemoryChatMemoryStore(), prompt, new ToolManager(new AiProperties()));
         assertThrows(IllegalArgumentException.class, () -> factory.createAgent(new AgentContext(1, 1, CodeGenType.HTML)));
     }
+    @Test void truncatedToolArgumentsRollbackAndSameAgentCanRetry() {
+        ChatModel model = mock(ChatModel.class, CALLS_REAL_METHODS);
+        var registry = mock(AiModelRegistry.class);
+        when(registry.getModel("code-generation")).thenReturn(model);
+        var properties = new AiProperties(); properties.setOutputRoot(directory.toString());
+        var store = new InMemoryChatMemoryStore();
+        var context = new AgentContext(1, 8, CodeGenType.HTML);
+        var before = java.util.List.<ChatMessage>of(SystemMessage.from("旧提示词"), UserMessage.from("已成功的需求"), AiMessage.from("已成功的回复"));
+        store.updateMessages(context.memoryId(), before);
+        var malformed = ToolExecutionRequest.builder().id("broken").name("writeFile")
+                .arguments("{\"fileName\":\"index.html\",\"content\":\"截断的源码").build();
+        doReturn(ChatResponse.builder().aiMessage(AiMessage.from(malformed)).build(),
+                ChatResponse.builder().aiMessage(AiMessage.from("重试成功")).build()).when(model).chat(any(ChatRequest.class));
+        var factory = new CodeGenerationAgentFactory(registry, properties, store, new AgentPromptBuilder(), new ToolManager(properties));
+        var agent = factory.getAgent(context);
+        var failure = assertThrows(com.zzz.zerocode.exception.BusinessException.class, () -> agent.generate("失败需求"));
+        assertTrue(failure.getMessage().contains("工具参数不完整"));
+        assertEquals(before, store.getMessages(context.memoryId()));
+        assertEquals("重试成功", agent.generate("再次尝试"));
+        var requests = ArgumentCaptor.forClass(ChatRequest.class);
+        verify(model, times(2)).chat(requests.capture());
+        assertTrue(requests.getAllValues().get(1).messages().stream().anyMatch(message -> message instanceof UserMessage user && user.singleText().equals("已成功的需求")));
+        assertFalse(requests.getAllValues().get(1).messages().stream().anyMatch(message -> message instanceof UserMessage user && user.singleText().equals("失败需求")));
+    }
+    @Test void legacyIncompleteToolCallsRecoverOnlyTheAffectedMemory() {
+        ChatModel model = mock(ChatModel.class, CALLS_REAL_METHODS);
+        var registry = mock(AiModelRegistry.class);
+        when(registry.getModel("code-generation")).thenReturn(model);
+        var properties = new AiProperties(); properties.setOutputRoot(directory.toString());
+        var store = new InMemoryChatMemoryStore();
+        var context = new AgentContext(1, 9, CodeGenType.HTML);
+        var other = new AgentContext(2, 9, CodeGenType.HTML);
+        var pending = ToolExecutionRequest.builder().id("unfinished").name("writeFile")
+                .arguments("{\"fileName\":\"index.html\",\"content\":\"hello\"}").build();
+        store.updateMessages(context.memoryId(), java.util.List.of(SystemMessage.from("system"), UserMessage.from("保留需求"),
+                AiMessage.from("保留回答"), UserMessage.from("失败需求"), AiMessage.from(pending), UserMessage.from("旧重试")));
+        var otherMemory = java.util.List.<ChatMessage>of(UserMessage.from("其他应用"));
+        store.updateMessages(other.memoryId(), otherMemory);
+        doReturn(ChatResponse.builder().aiMessage(AiMessage.from("成功")).build()).when(model).chat(any(ChatRequest.class));
+        var factory = new CodeGenerationAgentFactory(registry, properties, store, new AgentPromptBuilder(), new ToolManager(properties));
+        assertEquals("成功", factory.getAgent(context).generate("新重试"));
+        var request = ArgumentCaptor.forClass(ChatRequest.class); verify(model).chat(request.capture());
+        assertTrue(request.getValue().messages().stream().anyMatch(message -> message instanceof UserMessage user && user.singleText().equals("保留需求")));
+        assertFalse(request.getValue().messages().stream().anyMatch(message -> message instanceof AiMessage ai && ai.hasToolExecutionRequests()));
+        assertEquals(otherMemory, store.getMessages(other.memoryId()));
+    }
+
 }

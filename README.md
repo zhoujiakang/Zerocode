@@ -219,8 +219,16 @@ Redis 记忆是模型可见的窗口，不是完整对话历史；完整用户�
 
 `ModelConfig.customParameters` 支持服务商扩展请求参数，并由模型注册表传递给 LangChain4j。DeepSeek 配置使用 `thinking: { type: disabled }`；其默认思考模式要求在工具调用后续请求中回传 `reasoning_content`，当前 OpenAI 通用 Agent 先使用非思考模式。其他模型配置不必填写该参数，也不会自动受到 DeepSeek 设置影响。
 
-可参考 `backend/config/application-local.example.yml`，通过 `DEEPSEEK_API_KEY` 设置密钥、`AI_ENABLED=true` 启用。当前输出上限为 8192 tokens，可按实际生成需求修改本地配置。配置变更后需重启后端，使模型注册表及 Agent 缓存重新建立。
+可参考 `backend/config/application-local.example.yml`，通过 `DEEPSEEK_API_KEY` 设置密钥、`AI_ENABLED=true` 启用。当前输出上限为 32768 tokens，可按实际生成需求修改本地配置。配置变更后需重启后端，使模型注册表及 Agent 缓存重新建立。
 
 官方参考：[DeepSeek API](https://api-docs.deepseek.com/)、[思考模式与工具调用](https://api-docs.deepseek.com/guides/thinking_mode/)、[LangChain4j 扩展请求参数](https://docs.langchain4j.dev/integrations/language-models/open-ai/#setting-custom-chat-request-parameters)。
 
 接入验证：54 项后端测试通过。已使用真实 DeepSeek 模型生成多文件计数器，通过工具读取、精确修改标题并保存，MySQL 记录四条用户/AI 对话；浏览器确认“加一”和“重置”交互正常。示例“DeepSeek 计数器”保留在本地管理员的应用列表中。
+
+## 生成失败后的模型记忆恢复
+
+实际博客生成曾超出 8192 tokens 输出上限，`writeFile` 的 JSON 参数在源码中途截断。失败工具调用保留在 Redis 后，DeepSeek 会拒绝后续重试。已将本地 DeepSeek 配置与示例的输出上限调整为 32768 tokens。
+
+Agent 在同一应用串行锁内保存调用前的记忆快照，调用失败后恢复快照，防止无效工具调用污染后续请求。对旧版本已有的残缺 JSON 或缺少工具结果的记录，会在调用前回退到最近一个完整回答。恢复只影响当前应用的模型记忆，保留 MySQL 历史和本地文件；此前成功的对话与其他应用记忆不受影响。截断或不完整的工具参数会返回明确的重试提示。
+
+回归测试覆盖截断后同一 Agent 重试、旧残缺工具调用恢复及应用隔离。真实验证使用相同博客描述，并将旧失败记忆复制到新的测试应用以验证恢复，不修改原失败应用。

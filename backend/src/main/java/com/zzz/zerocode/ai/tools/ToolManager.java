@@ -12,11 +12,14 @@ import java.nio.file.Path;
 public class ToolManager {
     private final AiProperties properties;
     public Object[] getTools(AgentContext context) {
-        AppWorkspace workspace = new AppWorkspace(Path.of(properties.getOutputRoot()), context, properties.getMaxFileBytes());
+        AppWorkspace workspace = getWorkspace(context);
         return new Object[]{new FileWriteTool(workspace), new FileReadTool(workspace),
                 new FileModifyTool(workspace), new FileDirReadTool(workspace)};
     }
+    public AppWorkspace getWorkspace(AgentContext context) {
+        return new AppWorkspace(Path.of(properties.getOutputRoot()), context, properties.getMaxFileBytes());
+    }
     public Path getWorkspacePath(AgentContext context) {
-        return new AppWorkspace(Path.of(properties.getOutputRoot()), context, properties.getMaxFileBytes()).directory();
+        return getWorkspace(context).directory();
     }
 }

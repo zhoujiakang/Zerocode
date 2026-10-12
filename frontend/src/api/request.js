@@ -1,9 +1,9 @@
 export class ApiError extends Error {
   constructor(message, code, status) { super(message); this.code = code; this.status = status }
 }
-export async function request(path, { method = 'GET', body, silentUnauthorized = false } = {}) {
+export async function request(path, { method = 'GET', body, silentUnauthorized = false, timeoutMs = 10000 } = {}) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10000)
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   try {
     const response = await fetch(`/api${path}`, {
       method, credentials: 'include', signal: controller.signal,

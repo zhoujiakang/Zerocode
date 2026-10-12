@@ -6,5 +6,6 @@ export const siteConfig = {
 }
 export const menuItems = [
   { key: '/', label: '首页' },
+  { key: '/app/list', label: '我的应用' },
   { key: '/admin/user', label: '用户管理', role: 'admin' },
 ]

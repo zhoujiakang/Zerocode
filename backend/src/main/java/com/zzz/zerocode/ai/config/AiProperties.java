@@ -15,6 +15,11 @@ public class AiProperties {
     private String codeGenerationModel = "code-generation";
     private int maxMessages = 50;
     private int maxToolCallingRoundTrips = 10;
+    private String outputRoot = "./output/generated";
+    private long maxFileBytes = 1048576;
+    private long agentCacheMaximumSize = 1000;
+    private Duration agentCacheExpireAfterAccess = Duration.ofMinutes(10);
+    private Duration agentCacheExpireAfterWrite = Duration.ofMinutes(30);
     private Map<String, ModelConfig> models = new LinkedHashMap<>();
 
     @Data

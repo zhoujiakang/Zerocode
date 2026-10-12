@@ -22,6 +22,11 @@ app:
     code-generation-model: ${AI_CODE_GENERATION_MODEL:code-generation}
     max-messages: 50
     max-tool-calling-round-trips: 10
+    output-root: ${AI_OUTPUT_ROOT:./output/generated}
+    max-file-bytes: 1048576
+    agent-cache-maximum-size: 1000
+    agent-cache-expire-after-access: 10m
+    agent-cache-expire-after-write: 30m
     models:
       code-generation:
         base-url: ${AI_BASE_URL:}

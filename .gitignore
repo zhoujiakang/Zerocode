@@ -8,3 +8,4 @@ target/
 .env
 .env.local
 backend/config/application-local.yml
+backend/output/

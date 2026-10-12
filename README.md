@@ -110,7 +110,7 @@ MyBatis-Plus 参考：[Spring Boot 3 安装](https://baomidou.com/en/getting-sta
 
 ## AI 应用生成：第一步（基础配置与工厂）
 
-已接入 LangChain4j 1.22.0 和 Redis 记忆组件 1.22.0-beta32。当前阶段提供模型注册表、两种生成模式、系统提示词、Agent 接口和组装工厂，尚未提供正式文件工具、生成接口或生成页面。
+已接入 LangChain4j 1.22.0 和 Redis 记忆组件 1.22.0-beta32。当前提供模型注册表、两种生成模式、系统提示词、Redis 记忆、Agent 工厂缓存和正式文件工具；生成接口和生成页面将在后续步骤实现。
 
 - `AiModelRegistry`：通过 OpenAI 兼容 Chat Completions 接口按配置名称创建和复用模型，不固定为某一家服务商。各场景的 Agent 工厂可以选择不同模型配置。
 - `CodeGenerationAgentFactory`：绑定模型、模式提示词、调用方提供的工具集合和窗口记忆。使用方必须先验证应用归属，并在同一应用内串行调用。
@@ -148,7 +148,7 @@ app:
         api-key: ${PLANNING_API_KEY}
 ```
 
-Redis 记忆是模型可见的窗口，不是完整对话历史；完整历史和应用信息将在后续步骤保存在 MySQL 中。Agent 实例缓存和正式 ToolManager 也随文件工具步骤实现。
+Redis 记忆是模型可见的窗口，不是完整对话历史；完整历史和应用信息将在后续步骤保存在 MySQL 中。Agent 工厂已通过 Caffeine 缓存实例，ToolManager 按应用创建正式文件工具。
 
 验证：`mvn test` 使用模拟模型，不产生模型费用。运行真实 Redis 验证时使用 `RUN_REDIS_TESTS=true mvn test`；测试只操作随机 `zerocode:test:` 前缀并自行清理，不修改现有记忆。
 
@@ -159,3 +159,18 @@ Redis 记忆是模型可见的窗口，不是完整对话历史；完整历史�
 4. 前端生成页面和联调。
 
 每个步骤验证完成后单独 Git 提交。
+
+## AI 应用生成：第二步（文件工具与 Agent 缓存）
+
+`CodeGenerationAgentFactory.getAgent(context)` 按用户、应用、模式创建并复用 Agent，自动绑定 `ToolManager` 的四个文件工具。默认最多缓存 1000 个实例，闲置 10 分钟或创建 30 分钟后过期；`invalidateAgent` 只清理实例，不删除 Redis 记忆与代码文件。
+
+应用工作目录为 `backend/output/generated/{userId}/{appId}/{mode}/`（从 backend 启动时），可通过 `AI_OUTPUT_ROOT` 配置。HTML 模式仅允许 `index.html`；多文件模式允许 `index.html`、`style.css`、`script.js`。工具参数只接受固定文件名，不接受绝对路径或子目录。输出目录已加入 Git 忽略规则。
+
+- `writeFile(fileName, content)`：UTF-8 保存完整源码，临时文件写入成功后原子替换目标文件。
+- `readFile(fileName)`：读取当前文件，默认每个文件最多 1 MiB。
+- `modifyFile(fileName, oldText, newText)`：只替换唯一匹配；未匹配或匹配多处时不修改，返回可供模型修正的错误。
+- `listFiles()`：列出当前模式的已有文件与字节数。
+
+当前进程内，同一应用上下文的生成调用串行执行；即使缓存实例失效后重建，也共用串行锁。文件写入按应用隔离，拒绝符号链接文件和应用目录。模型可修正的工具错误只返回简短消息，其他异常直接终止本次调用。多后端实例部署时还需补充跨进程调度。
+
+第二步测试覆盖真实文件读写、精确修改、路径和符号链接隔离、UTF-8 文件大小限制、实际 Agent 工具调用、缓存重建后记忆保留与调用串行。模型调用仍由测试模型模拟，不产生真实模型费用。

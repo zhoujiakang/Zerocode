@@ -107,3 +107,55 @@ MyBatis-Plus 参考：[Spring Boot 3 安装](https://baomidou.com/en/getting-sta
 - `aop/RequestLogAspect`：记录请求追踪 ID、调用方法、耗时，与 Sa-Token 的鉴权职责独立。
 
 已有数据库的时间字段变更脚本为 `backend/sql/migrate-user-times.sql`。本机已执行：editTime 和 updateTime 都随记录实际修改自动更新，createTime 保持不变。实体将这些时间字段配置为禁止插入/更新赋值，不再使用 MetaObjectHandler。
+
+## AI 应用生成：第一步（基础配置与工厂）
+
+已接入 LangChain4j 1.22.0 和 Redis 记忆组件 1.22.0-beta32。当前阶段提供模型注册表、两种生成模式、系统提示词、Agent 接口和组装工厂，尚未提供正式文件工具、生成接口或生成页面。
+
+- `AiModelRegistry`：通过 OpenAI 兼容 Chat Completions 接口按配置名称创建和复用模型，不固定为某一家服务商。各场景的 Agent 工厂可以选择不同模型配置。
+- `CodeGenerationAgentFactory`：绑定模型、模式提示词、调用方提供的工具集合和窗口记忆。使用方必须先验证应用归属，并在同一应用内串行调用。
+- `AgentContext`：以 `userId:appId:mode` 作为记忆 ID；同一应用续写可以重新创建 Agent 并恢复 Redis 记忆。
+- `RedisChatMemoryStore`：普通字符串存储，不需要 RedisJSON。默认前缀 `zerocode:agent:memory:`，每次更新后有效期为 7 天。Redis 默认 `127.0.0.1:6379`；host、port、user、password、TLS 可通过环境变量配置。
+- 系统提示词放在 `backend/src/main/resources/prompts`，采用通用规则 + HTML / 多文件规则，明确要求源码通过工具保存。
+- `AI_ENABLED` 默认 false，未配置模型时现有用户功能正常启动；尝试创建 Agent 时返回明确的 AI 未配置异常。
+
+启用某个 OpenAI 兼容服务时，在本地环境提供：
+
+```sh
+export AI_ENABLED=true
+export AI_BASE_URL='https://你的服务地址/v1'
+export AI_MODEL_NAME='实际模型名称'
+export AI_API_KEY='你的模型密钥'
+```
+
+密钥也可放入 Git 忽略的 `backend/config/application-local.yml`，不要写入公共配置或提交到仓库。模型必须支持 Chat Completions 工具调用；当前适配器不是 Responses API 适配器。
+
+多个模型的配置示例（写入本地配置，按实际服务填写）：
+
+```yaml
+app:
+  ai:
+    enabled: true
+    code-generation-model: coding
+    models:
+      coding:
+        base-url: ${CODING_BASE_URL}
+        model-name: ${CODING_MODEL_NAME}
+        api-key: ${CODING_API_KEY}
+      planning:
+        base-url: ${PLANNING_BASE_URL}
+        model-name: ${PLANNING_MODEL_NAME}
+        api-key: ${PLANNING_API_KEY}
+```
+
+Redis 记忆是模型可见的窗口，不是完整对话历史；完整历史和应用信息将在后续步骤保存在 MySQL 中。Agent 实例缓存和正式 ToolManager 也随文件工具步骤实现。
+
+验证：`mvn test` 使用模拟模型，不产生模型费用。运行真实 Redis 验证时使用 `RUN_REDIS_TESTS=true mvn test`；测试只操作随机 `zerocode:test:` 前缀并自行清理，不修改现有记忆。
+
+开发步骤：
+1. Redis / 多模型配置 / 提示词 / Agent 工厂基础。
+2. 绑定应用工作目录的读、写、修改和目录工具，以及工厂缓存。
+3. 应用与对话历史持久化、生成与继续修改接口。
+4. 前端生成页面和联调。
+
+每个步骤验证完成后单独 Git 提交。

@@ -1,0 +1,6 @@
+当前模式：原生多文件。
+必须通过工具完成 index.html、style.css、script.js 三个文件。
+index.html 只包含网页结构与内容，并在 head 中引用 ./style.css，在 body 结束前引用 ./script.js。
+style.css 包含完整样式，script.js 包含完整交互逻辑。
+HTML 必须包含 doctype、html、head、body、字符编码与 viewport 设置。
+三个文件之间的选择器和事件绑定必须对应，使用经典脚本，使页面可以直接打开运行。
